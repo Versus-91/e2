@@ -3,7 +3,7 @@ var d3; // Minor workaround to avoid error messages in editors
 // Waiting until document has loaded
 window.onload = () => {
   d3.json("football.json").then(function (data) {
-    const DEFAULT_COLOR_ENC_ATTR = "appearance";
+    const defaultAttr = "appearance";
 
     // initial arrays of attributes to display on axes of the PCP
     let attributes = [
@@ -13,51 +13,34 @@ window.onload = () => {
       "challenge_lost",
       "touches",
       "clearance_total",
-      "dispossessed",
-      "dribble_lost",
-      "red_card",
+      "pass_accurate",
+      "pass_inaccurate",
+      "yellow_card",
       "keeper_save_total",
     ];
     let allAttributes = getAttributes();
-    //console.log(attributes);
-
-    //define the dimensions of the PCP axes
     let margin = { top: 30, right: 30, bottom: 30, left: 30 };
-    let width = 1500;
-    let height = 600;
+    let width = 1900;
+    let height = 700;
     let brushWidth = 20;
-    const NUMBER_OF_AXES = 10;
-    let keyz = DEFAULT_COLOR_ENC_ATTR;
+    let keyz = defaultAttr;
 
     let selections = new Map();
     let dragging = {};
 
     const tickDistMap = returnAttributeTickDistance();
-    populateMissingAttributes();
-
-    //setup the color encoding data attribute dropdown
+    normalizeData();
     setupColorEncodingDropdown();
-
-    //setup the dropdowns to select attributes for various axes
     setupAttributeSelectionDropdowns();
-
-    //console.log(data);
-
-    //map the attributes of the dataset to a continous scale
     let x_axis = build_x_axis();
-    //console.log(x_axis);
 
-    //build a continous scale using the min and max value of each attribute from the dataset
     let y_axis = build_y_axis();
 
-    //console.log(y_axis);
-    let colors = d3.interpolatePuOr;
-    let deselectedColor = "#ddd";
+    let colors = d3.interpolateRdYlGn;
+    let deselectedColor = "#b1b1b1";
     let highlight = d3.scaleSequential(y_axis.get(keyz).domain(), colors);
 
     let polyline = build_polyline(x_axis, y_axis);
-
-    //let label = d => d["label"];
     let label = build_label_for_polyline();
 
     const brush = d3
@@ -85,17 +68,11 @@ window.onload = () => {
       brush
     );
     var pathRef = svgRef.selectAll("path").filter((d) => d != null);
-    //console.log(pathRef.data());
-
     function colorEncodingChangeEventHandler() {
       const colorEncodingDropdown = d3.select("#color-encoding");
-
-      //event handler for anytime the user selects a different data attribute from the dropdown
       colorEncodingDropdown.on("change-attribute", () => {
-        //console.log(colorEncodingDropdown.property("attribute-changed-to"));
         keyz = colorEncodingDropdown.property("attribute-changed-to");
-
-        selections = new Map(); //reset the selections manually since its not a part of brush's internal reset
+        selections = new Map();
         let updatedHighlight = d3.scaleSequential(
           y_axis.get(keyz).domain(),
           colors
@@ -168,13 +145,9 @@ window.onload = () => {
 
     function brushed(selection, key, event) {
       event.sourceEvent.stopPropagation();
-      //console.log(y_axis.get(key));
       if (selection === null) selections.delete(key);
       else selections.set(key, selection.map(y_axis.get(key).invert));
-
-      //console.log(selections);
       const selected = [];
-
       pathRef.each(function (d) {
         const active = Array.from(selections).every(
           ([key, [min, max]]) => d[key] >= min && d[key] <= max
@@ -183,20 +156,10 @@ window.onload = () => {
           y_axis.get(keyz).domain(),
           colors
         );
-        d3.select(this)
-          .attr("stroke", active ? brushHighlight(d[keyz]) : deselectedColor)
-          .on("mouseover", function (d) {
-            d3.select(this).attr("stroke-width", 6);
-            d3.select(this).attr("stroke-opacity", 2);
-            d3.select(this).attr("stroke", "#00FF00");
-          })
-          .on("mouseout", function (event) {
-            d3.select(this).attr("stroke-width", 2);
-            d3.select(this).attr("stroke-opacity", 0.8);
-            if (active) d3.select(this).attr("stroke", brushHighlight(d[keyz]));
-            else d3.select(this).attr("stroke", deselectedColor);
-          });
-
+        d3.select(this).attr(
+          "stroke",
+          active ? brushHighlight(d[keyz]) : deselectedColor
+        );
         if (active) {
           d3.select(this).raise();
           selected.push(d);
@@ -240,18 +203,6 @@ window.onload = () => {
             })
           );
         });
-      // .on("mouseover", function(d){
-      //   d3.select(this).attr("stroke-width", 6);
-      //   d3.select(this).attr("stroke-opacity", 2);
-      //   d3.select(this).attr("stroke", "#00FF00");
-      //   //console.log("over");
-      // })
-      // .on("mouseout", function(d){
-      //   d3.select(this).attr("stroke-width", 2);
-      //   d3.select(this).attr("stroke-opacity", 0.8);
-      //   d3.select(this).attr("stroke", d => highlight(d[keyz]));
-      //   //console.log("out");
-      // });
 
       path.append("title").text(label);
 
@@ -275,7 +226,6 @@ window.onload = () => {
               return { x: x_axis(d) };
             })
             .on("start", function (d) {
-              //console.log("drag started");
               dragging[d] = x_axis(d);
             })
             .on("drag", function (event, d) {
@@ -283,7 +233,6 @@ window.onload = () => {
                 width - margin.right,
                 Math.max(margin.left, event.x)
               );
-              //console.log(position(d));
               attributes.sort(function (a, b) {
                 return position(a) - position(b);
               });
@@ -309,7 +258,6 @@ window.onload = () => {
                   polyline(d3.cross(attributes, [d], (key, d) => [key, d[key]]))
                 );
 
-              // rebuild the axis dropdowns
               d3.select("#attribute-selection-root").remove();
               setupAttributeSelectionDropdowns();
             })
@@ -367,14 +315,11 @@ window.onload = () => {
           form.property("axis-attribute-changed-to", select.property("value"));
           form.node().dispatchEvent(new Event("change-axis-attribute"));
         });
-        //select.on("change")();
 
         form.append(() => select.node());
         div_attr_drpdwn.append(() => form.node());
       });
-      d3.select("#attribute-selection-container").append(() =>
-        div_attr_drpdwn.node()
-      );
+      d3.select("#attr-selection").append(() => div_attr_drpdwn.node());
     }
 
     function position(d) {
@@ -452,11 +397,10 @@ window.onload = () => {
       return Object.keys(playerData);
     }
 
-    function populateMissingAttributes() {
+    function normalizeData() {
       const allAttributes = getAttributes(); //get a list of all the attributes
       data["nodes"].forEach((playerData) => {
         const playerAttributes = getAttributesOfPlayer(playerData);
-        //console.log(playerAttributes);
         allAttributes.forEach((dataAttribute) => {
           if (!playerAttributes.includes(dataAttribute)) {
             playerData[dataAttribute] = tickDistMap.get(dataAttribute); // app. negative value represents NA value, workaround suitable for our dataset
@@ -477,20 +421,6 @@ window.onload = () => {
           return [attr, tickDistance];
         })
       );
-
-      //some manual updates required due to too little available value for attributes
-      tickDistMap.set("keeper_missed", -0.1);
-      tickDistMap.set("punches", -0.5);
-      tickDistMap.set("red_card", -0.1);
-      tickDistMap.set("second_yellow", -0.1);
-      tickDistMap.set("penalty_scored", -0.1);
-      tickDistMap.set("duel_aerial_won", -5);
-      tickDistMap.set("foul_committed", -2);
-      tickDistMap.set("sub_off", -1);
-      tickDistMap.set("sub_on", -1);
-      tickDistMap.set("assist", -0.5);
-      tickDistMap.set("goal_head", -0.2);
-      //console.log(tickDistMap);
       return tickDistMap;
     }
 
@@ -505,7 +435,6 @@ window.onload = () => {
 
       select.property("value", keyz);
       select.on("change", () => {
-        console.log("encoding change...");
         colorEncodingChangeEventHandler();
         form.property("attribute-changed-to", select.property("value"));
         form.node().dispatchEvent(new Event("change-attribute"));
@@ -516,8 +445,8 @@ window.onload = () => {
         .append("i")
         .style("font-size", "smaller")
         .style("margin-left", "15px")
-        .text("Select attribute as basis of color encoding");
-      d3.select("#color-encoding-container").append(() => form.node());
+        .text("color encoding");
+      d3.select("#encoding-container").append(() => form.node());
     }
   });
 };
