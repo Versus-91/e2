@@ -1,156 +1,219 @@
-miserables = FileAttachment("miserables.json").json()
-chart = ForceGraph(miserables, {
-  nodeId: (d) => d.id,
-  nodeGroup: (d) => d.group,
-  nodeTitle: (d) => `${d.id}\n${d.group}`,
-  linkStrokeWidth: (l) => Math.sqrt(l.value),
-  width,
-  height: 600,
-  invalidation, // a promise to stop the simulation when the cell is re-run
-});
-function ForceGraph(
-  {
-    nodes, // an iterable of node objects (typically [{id}, …])
-    links, // an iterable of link objects (typically [{source, target}, …])
-  },
-  {
-    nodeId = (d) => d.id, // given d in nodes, returns a unique identifier (string)
-    nodeGroup, // given d in nodes, returns an (ordinal) value for color
-    nodeGroups, // an array of ordinal values representing the node groups
-    nodeTitle, // given d in nodes, a title string
-    nodeFill = "currentColor", // node stroke fill (if not using a group color encoding)
-    nodeStroke = "#fff", // node stroke color
-    nodeStrokeWidth = 1.5, // node stroke width, in pixels
-    nodeStrokeOpacity = 1, // node stroke opacity
-    nodeRadius = 5, // node radius, in pixels
-    nodeStrength,
-    linkSource = ({ source }) => source, // given d in links, returns a node identifier string
-    linkTarget = ({ target }) => target, // given d in links, returns a node identifier string
-    linkStroke = "#999", // link stroke color
-    linkStrokeOpacity = 0.6, // link stroke opacity
-    linkStrokeWidth = 1.5, // given d in links, returns a stroke width in pixels
-    linkStrokeLinecap = "round", // link stroke linecap
-    linkStrength,
-    colors = d3.schemeTableau10, // an array of color strings, for the node groups
-    width = 640, // outer width, in pixels
-    height = 400, // outer height, in pixels
-    invalidation, // when this promise resolves, stop the simulation
-  } = {}
-) {
-  // Compute values.
-  const N = d3.map(nodes, nodeId).map(intern);
-  const LS = d3.map(links, linkSource).map(intern);
-  const LT = d3.map(links, linkTarget).map(intern);
-  if (nodeTitle === undefined) nodeTitle = (_, i) => N[i];
-  const T = nodeTitle == null ? null : d3.map(nodes, nodeTitle);
-  const G = nodeGroup == null ? null : d3.map(nodes, nodeGroup).map(intern);
-  const W =
-    typeof linkStrokeWidth !== "function"
-      ? null
-      : d3.map(links, linkStrokeWidth);
-  const L = typeof linkStroke !== "function" ? null : d3.map(links, linkStroke);
+fetch("football.json")
+  .then((response) => response.json())
+  .then((json) => {
+    var processed_data = {
+      nodes: json.nodes.map((d) => ({
+        id: d.id,
+        group: Math.floor(Math.random() * (5 - 0 + 1)) + 1,
+        player: d.label,
+      })),
+      links: json.edges.map((d) => ({
+        source: d.src,
+        target: d.dst,
+        value: d.value,
+      })),
+    };
+    chart = ForceGraph(processed_data, {
+      nodeId: (d) => d.id,
+      nodeGroup: (d) => d.group,
+      nodeTitle: (d) => `${d.id}\n${d.group}`,
+      linkStrokeWidth: (l) => Math.sqrt(l.value),
+      width: 900,
+      height: 900,
+      invalidation: null, // a promise to stop the simulation when the cell is re-run
+    });
+    function ForceGraph(
+      {
+        nodes, // an iterable of node objects (typically [{id}, …])
+        links, // an iterable of link objects (typically [{source, target}, …])
+      },
+      {
+        nodeId = (d) => d.id, // given d in nodes, returns a unique identifier (string)
+        nodeGroup, // given d in nodes, returns an (ordinal) value for color
+        nodeGroups, // an array of ordinal values representing the node groups
+        nodeTitle, // given d in nodes, a title string
+        nodeFill = "currentColor", // node stroke fill (if not using a group color encoding)
+        nodeStroke = "#fff", // node stroke color
+        nodeStrokeWidth = 1.5, // node stroke width, in pixels
+        nodeStrokeOpacity = 1, // node stroke opacity
+        nodeRadius = 5, // node radius, in pixels
+        nodeStrength,
+        linkSource = ({ source }) => source, // given d in links, returns a node identifier string
+        linkTarget = ({ target }) => target, // given d in links, returns a node identifier string
+        linkStroke = "#999", // link stroke color
+        linkStrokeOpacity = 0.6, // link stroke opacity
+        linkStrokeWidth = 1.5, // given d in links, returns a stroke width in pixels
+        linkStrokeLinecap = "round", // link stroke linecap
+        linkStrength,
+        colors = d3.schemeTableau10, // an array of color strings, for the node groups
+        width = 640, // outer width, in pixels
+        height = 400, // outer height, in pixels
+        invalidation, // when this promise resolves, stop the simulation
+      } = {}
+    ) {
+      let selectedNodes = [];
+      // Compute values.
+      const N = d3.map(nodes, nodeId).map(intern);
+      console.table(N);
+      const LS = d3.map(links, linkSource).map(intern);
+      const LT = d3.map(links, linkTarget).map(intern);
+      if (nodeTitle === undefined) nodeTitle = (_, i) => N[i];
+      const T = nodeTitle == null ? null : d3.map(nodes, nodeTitle);
+      const G = nodeGroup == null ? null : d3.map(nodes, nodeGroup).map(intern);
+      const W =
+        typeof linkStrokeWidth !== "function"
+          ? null
+          : d3.map(links, linkStrokeWidth);
+      const L =
+        typeof linkStroke !== "function" ? null : d3.map(links, linkStroke);
 
-  // Replace the input nodes and links with mutable objects for the simulation.
-  nodes = d3.map(nodes, (_, i) => ({ id: N[i] }));
-  links = d3.map(links, (_, i) => ({ source: LS[i], target: LT[i] }));
+      // Replace the input nodes and links with mutable objects for the simulation.
+      nodes = d3.map(nodes, (_, i) => ({ id: N[i] }));
+      links = d3.map(links, (_, i) => ({ source: LS[i], target: LT[i] }));
 
-  // Compute default domains.
-  if (G && nodeGroups === undefined) nodeGroups = d3.sort(G);
+      // Compute default domains.
+      if (G && nodeGroups === undefined) nodeGroups = d3.sort(G);
 
-  // Construct the scales.
-  const color = nodeGroup == null ? null : d3.scaleOrdinal(nodeGroups, colors);
+      // Construct the scales.
+      const color =
+        nodeGroup == null ? null : d3.scaleOrdinal(nodeGroups, colors);
 
-  // Construct the forces.
-  const forceNode = d3.forceManyBody();
-  const forceLink = d3.forceLink(links).id(({ index: i }) => N[i]);
-  if (nodeStrength !== undefined) forceNode.strength(nodeStrength);
-  if (linkStrength !== undefined) forceLink.strength(linkStrength);
+      // Construct the forces.
+      const forceNode = d3.forceManyBody();
+      const forceLink = d3.forceLink(links).id(({ index: i }) => N[i]);
+      if (nodeStrength !== undefined) forceNode.strength(nodeStrength);
+      if (linkStrength !== undefined) forceLink.strength(linkStrength);
 
-  const simulation = d3
-    .forceSimulation(nodes)
-    .force("link", forceLink)
-    .force("charge", forceNode)
-    .force("center", d3.forceCenter())
-    .on("tick", ticked);
+      const simulation = d3
+        .forceSimulation(nodes)
+        .force("link", forceLink)
+        .force("charge", forceNode)
+        .force("center", d3.forceCenter())
+        .on("tick", ticked);
 
-  const svg = d3
-    .create("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .attr("viewBox", [-width / 2, -height / 2, width, height])
-    .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
+      const svg = d3
+        .select("#frame")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("viewBox", [-width / 2, -height / 2, width, height])
+        .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
 
-  const link = svg
-    .append("g")
-    .attr("stroke", typeof linkStroke !== "function" ? linkStroke : null)
-    .attr("stroke-opacity", linkStrokeOpacity)
-    .attr(
-      "stroke-width",
-      typeof linkStrokeWidth !== "function" ? linkStrokeWidth : null
-    )
-    .attr("stroke-linecap", linkStrokeLinecap)
-    .selectAll("line")
-    .data(links)
-    .join("line");
+      const link = svg
+        .append("g")
+        .attr("stroke", typeof linkStroke !== "function" ? linkStroke : null)
+        .attr("stroke-opacity", linkStrokeOpacity)
+        .attr(
+          "stroke-width",
+          typeof linkStrokeWidth !== "function" ? linkStrokeWidth : null
+        )
+        .attr("stroke-linecap", linkStrokeLinecap)
+        .selectAll("line")
+        .data(links)
+        .join("line");
 
-  const node = svg
-    .append("g")
-    .attr("fill", nodeFill)
-    .attr("stroke", nodeStroke)
-    .attr("stroke-opacity", nodeStrokeOpacity)
-    .attr("stroke-width", nodeStrokeWidth)
-    .selectAll("circle")
-    .data(nodes)
-    .join("circle")
-    .attr("r", nodeRadius)
-    .call(drag(simulation));
+      const node = svg
+        .append("g")
+        .attr("fill", nodeFill)
+        .attr("stroke", nodeStroke)
+        .attr("stroke-opacity", nodeStrokeOpacity)
+        .attr("stroke-width", nodeStrokeWidth)
+        .selectAll("circle")
+        .data(nodes)
+        .join("circle")
+        .attr("r", nodeRadius)
+        .call(drag(simulation))
+        .on("mouseover", handleMouseOver) // Add mouseover event listener
+        .on("mouseout", handleMouseOut)
+        .on("click", selectNode);
 
-  if (W) link.attr("stroke-width", ({ index: i }) => W[i]);
-  if (L) link.attr("stroke", ({ index: i }) => L[i]);
-  if (G) node.attr("fill", ({ index: i }) => color(G[i]));
-  if (T) node.append("title").text(({ index: i }) => T[i]);
-  if (invalidation != null) invalidation.then(() => simulation.stop());
+      if (W) link.attr("stroke-width", ({ index: i }) => W[i]);
+      if (L) link.attr("stroke", ({ index: i }) => L[i]);
+      if (G) node.attr("fill", ({ index: i }) => color(G[i]));
+      if (T) node.append("title").text(({ index: i }) => T[i]);
+      if (invalidation != null) invalidation.then(() => simulation.stop());
+      // Function to handle node selection
+      function selectNode(event, d) {
+        const isSelected = selectedNodes.includes(d);
+        if (isSelected) {
+          // Deselect the node if it's already selected
+          selectedNodes = selectedNodes.filter((node) => node !== d);
+        } else {
+          // Select the clicked node
+          selectedNodes.push(d);
+        }
 
-  function intern(value) {
-    return value !== null && typeof value === "object"
-      ? value.valueOf()
-      : value;
-  }
+        node.attr("stroke-width", (n) =>
+          selectedNodes.includes(n) ? 2 * nodeStrokeWidth : nodeStrokeWidth
+        );
+        console.table(selectedNodes);
+      }
+      function intern(value) {
+        return value !== null && typeof value === "object"
+          ? value.valueOf()
+          : value;
+      }
+      const tooltip = d3
+        .select("body")
+        .append("div")
+        .attr("class", "tooltip")
+        .style("position", "absolute")
+        .style("pointer-events", "none")
+        .style("visibility", "hidden");
 
-  function ticked() {
-    link
-      .attr("x1", (d) => d.source.x)
-      .attr("y1", (d) => d.source.y)
-      .attr("x2", (d) => d.target.x)
-      .attr("y2", (d) => d.target.y);
+      function handleMouseOver(event, d) {
+        item = json.nodes.find((item) => item.id === d.id);
+        console.log(item);
+        // Show tooltip with node information
+        tooltip
+          .text(item.label)
+          .style("left", event.pageX + 10 + "px")
+          .style("top", event.pageY + 10 + "px")
+          .style("visibility", "visible");
+      }
 
-    node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
-  }
+      function handleMouseOut() {
+        // Hide the tooltip
+        tooltip.style("visibility", "hidden");
+      }
+      function ticked() {
+        link
+          .attr("x1", (d) => d.source.x)
+          .attr("y1", (d) => d.source.y)
+          .attr("x2", (d) => d.target.x)
+          .attr("y2", (d) => d.target.y);
 
-  function drag(simulation) {
-    function dragstarted(event) {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
-      event.subject.fx = event.subject.x;
-      event.subject.fy = event.subject.y;
+        node
+          .attr("cx", (d) => d.x)
+          .attr("cy", (d) => d.y)
+          .attr("fill-opacity", (d) => (selectedNodes.includes(d) ? 1 : 0.7)); // Highlight selected nodes
+      }
+
+      function drag(simulation) {
+        function dragstarted(event) {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          event.subject.fx = event.subject.x;
+          event.subject.fy = event.subject.y;
+        }
+
+        function dragged(event) {
+          event.subject.fx = event.x;
+          event.subject.fy = event.y;
+        }
+
+        function dragended(event) {
+          if (!event.active) simulation.alphaTarget(0);
+          event.subject.fx = null;
+          event.subject.fy = null;
+        }
+
+        return d3
+          .drag()
+          .on("start", dragstarted)
+          .on("drag", dragged)
+          .on("end", dragended);
+      }
+
+      return Object.assign(svg.node(), { scales: { color } });
     }
-
-    function dragged(event) {
-      event.subject.fx = event.x;
-      event.subject.fy = event.y;
-    }
-
-    function dragended(event) {
-      if (!event.active) simulation.alphaTarget(0);
-      event.subject.fx = null;
-      event.subject.fy = null;
-    }
-
-    return d3
-      .drag()
-      .on("start", dragstarted)
-      .on("drag", dragged)
-      .on("end", dragended);
-  }
-
-  return Object.assign(svg.node(), { scales: { color } });
-}
+  });

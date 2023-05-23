@@ -5,6 +5,8 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Assignement 2</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
     <style>
       .brushed {
         opacity: 1;
@@ -13,11 +15,61 @@
       .non-brushed {
         opacity: 0.2;
       }
+      body {
+        height: 100%;
+        /*background-color: #39918C;*/
+      }
+
+      #container {
+        margin-left: 15px;
+      }
+
+      .center {
+        margin: auto;
+        width: 50%;
+        text-align: center;
+        vertical-align: middle;
+      }
+
+      /*to display cursor on the ticks of the scale*/
+      .tick text {
+        cursor: move;
+      }
+
+      .color-encoding-dropdown {
+        display: block;
+        font-size: 16px;
+        font-weight: bold;
+        margin-left: 30px;
+      }
+
+      #attribute-selection-root {
+        display: flex;
+      }
+
+      .attribute-selection-dropdown {
+        display: block;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 15px;
+        padding-right: 15px;
+      }
+
+      .popup-desc {
+        font-size: 12px;
+        font-weight: bold;
+        display: block;
+        background-color: #fadab7;
+        padding: 5px;
+        border: 1px solid #f984e3;
+      }
     </style>
   </head>
   <body>
-    <div class="div" id="frame"></div>
+    <div id="attribute-selection-container"></div>
+    <div id="container"></div>
+    <div id="color-encoding-container"></div>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="graph.js"></script>
+    <script src="a.js"></script>
   </body>
 </html>
