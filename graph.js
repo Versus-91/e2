@@ -1,25 +1,44 @@
+let selectedNodes = [];
+const color = "#00755E";
+const colorSelected = "#39FF14";
+function deselectAll() {
+  selectedNodes = [];
+  document.getElementById("data").innerHTML = "";
+  d3.selectAll("circle").attr("fill", color);
+}
+let json = async () => {
+  const response = await fetch("football.json");
+  const json = await response.json();
+  return json;
+};
 fetch("football.json")
   .then((response) => response.json())
   .then((json) => {
     var processed_data = {
       nodes: json.nodes.map((d) => ({
         id: d.id,
-        group: Math.floor(Math.random() * (5 - 0 + 1)) + 1,
+        group: 1,
         player: d.label,
       })),
       links: json.edges.map((d) => ({
         source: d.src,
         target: d.dst,
-        value: d.value,
+        value: d.val,
       })),
     };
     chart = ForceGraph(processed_data, {
       nodeId: (d) => d.id,
       nodeGroup: (d) => d.group,
       nodeTitle: (d) => `${d.id}\n${d.group}`,
-      linkStrokeWidth: (l) => Math.sqrt(l.value),
-      width: 900,
-      height: 900,
+      linkStrokeWidth: function (l) {
+        if (l.value === 1) {
+          return Math.sqrt(l.value);
+        } else {
+          return Math.sqrt(l.value) * 2 + 1;
+        }
+      },
+      width: 600,
+      height: 600,
       invalidation: null, // a promise to stop the simulation when the cell is re-run
     });
     function ForceGraph(
@@ -36,7 +55,7 @@ fetch("football.json")
         nodeStroke = "#fff", // node stroke color
         nodeStrokeWidth = 1.5, // node stroke width, in pixels
         nodeStrokeOpacity = 1, // node stroke opacity
-        nodeRadius = 5, // node radius, in pixels
+        nodeRadius = 8, // node radius, in pixels
         nodeStrength,
         linkSource = ({ source }) => source, // given d in links, returns a node identifier string
         linkTarget = ({ target }) => target, // given d in links, returns a node identifier string
@@ -51,10 +70,8 @@ fetch("football.json")
         invalidation, // when this promise resolves, stop the simulation
       } = {}
     ) {
-      let selectedNodes = [];
       // Compute values.
       const N = d3.map(nodes, nodeId).map(intern);
-      console.table(N);
       const LS = d3.map(links, linkSource).map(intern);
       const LT = d3.map(links, linkTarget).map(intern);
       if (nodeTitle === undefined) nodeTitle = (_, i) => N[i];
@@ -125,7 +142,7 @@ fetch("football.json")
         .call(drag(simulation))
         .on("mouseover", handleMouseOver) // Add mouseover event listener
         .on("mouseout", handleMouseOut)
-        .on("click", selectNode);
+        .on("click", selectNodes);
 
       if (W) link.attr("stroke-width", ({ index: i }) => W[i]);
       if (L) link.attr("stroke", ({ index: i }) => L[i]);
@@ -133,7 +150,7 @@ fetch("football.json")
       if (T) node.append("title").text(({ index: i }) => T[i]);
       if (invalidation != null) invalidation.then(() => simulation.stop());
       // Function to handle node selection
-      function selectNode(event, d) {
+      function selectNodes(event, d) {
         const isSelected = selectedNodes.includes(d);
         if (isSelected) {
           // Deselect the node if it's already selected
@@ -141,12 +158,23 @@ fetch("football.json")
         } else {
           // Select the clicked node
           selectedNodes.push(d);
+          d3.select(this).attr("fill", colorSelected);
         }
-
-        node.attr("stroke-width", (n) =>
-          selectedNodes.includes(n) ? 2 * nodeStrokeWidth : nodeStrokeWidth
-        );
-        console.table(selectedNodes);
+        const selectEvent = new CustomEvent("nodeSelected", {
+          detail: selectedNodes,
+        });
+        document.dispatchEvent(selectEvent);
+        items = [];
+        selectedNodes.forEach((item) => {
+          data = json.nodes.find((z) => item.id === z.id);
+          items.push(data);
+        });
+        tableCreate(items);
+      }
+      function unselectNodes() {
+        selectedNodes = [];
+        document.getElementById("data").innerHTML = "";
+        d3.selectAll("circle").attr("fill", color);
       }
       function intern(value) {
         return value !== null && typeof value === "object"
@@ -162,16 +190,45 @@ fetch("football.json")
         .style("visibility", "hidden");
 
       function handleMouseOver(event, d) {
-        item = json.nodes.find((item) => item.id === d.id);
-        console.log(item);
-        // Show tooltip with node information
-        tooltip
-          .text(item.label)
-          .style("left", event.pageX + 10 + "px")
-          .style("top", event.pageY + 10 + "px")
-          .style("visibility", "visible");
+        // item = json.nodes.find((item) => item.id === d.id);
+        // console.log(item);
+        // tableCreate(item);
       }
-
+      function tableCreate(dataObj) {
+        //body reference
+        var body = document.getElementById("data");
+        body.innerHTML = "";
+        // create elements <table> and a <tbody>
+        var tbl = document.createElement("table");
+        tbl.className = "table table-striped table-hover";
+        var tblBody = document.createElement("tbody");
+        var tblHead = document.createElement("thead");
+        const headers = ["id", "label", "mins_played"];
+        var headerRow = document.createElement("tr");
+        for (var j = 0; j < 3; j++) {
+          // table row creation
+          // Form and set the inner HTML directly
+          headerRow.innerHTML += `<th>${headers[j]}</th>`;
+          //row added to end of table body
+        }
+        tblHead.appendChild(headerRow);
+        dataObj.forEach((item) => {
+          // cells creation
+          var row = document.createElement("tr");
+          for (var j = 0; j < 3; j++) {
+            // table row creation
+            // Form and set the inner HTML directly
+            row.innerHTML += `<td>${item[headers[j]]}</td>`;
+            //row added to end of table body
+          }
+          tblBody.appendChild(row);
+          // append the <tbody> inside the <table>
+          tbl.appendChild(tblHead);
+          tbl.appendChild(tblBody);
+        });
+        // put <table> in the <body>
+        body.appendChild(tbl);
+      }
       function handleMouseOut() {
         // Hide the tooltip
         tooltip.style("visibility", "hidden");

@@ -3,7 +3,7 @@ var d3; // Minor workaround to avoid error messages in editors
 // Waiting until document has loaded
 window.onload = () => {
   d3.json("football.json").then(function (data) {
-    const defaultAttr = "appearance";
+    const defaultAttr = "mins_played";
 
     // initial arrays of attributes to display on axes of the PCP
     let attributes = [
@@ -203,7 +203,18 @@ window.onload = () => {
             })
           );
         });
+      document.addEventListener("nodeSelected", function (event) {
+        const selectedNodes = event.detail;
 
+        // Update the parallel coordinates plot to highlight the selected paths
+        path.classed("highlight", function (d) {
+          // Check if the path's data-id attribute matches the identifier of a selected node
+          return selectedNodes.some(function (node) {
+            console.log("ssss");
+            return node.id === d.id;
+          });
+        });
+      });
       path.append("title").text(label);
 
       const g = svg
