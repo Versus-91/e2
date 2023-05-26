@@ -1,19 +1,23 @@
-let selectedNodes = [];
-const color = "#00755E";
+
+
+// Copyright 2021 Observable, Inc.
+// Released under the ISC license.
+// https://observablehq.com/@d3/force-directed-graphlet
+ selectedNodes = [];
+const mycolor = "#00755E";
 const colorSelected = "#39FF14";
 function deselectAll() {
   selectedNodes = [];
   document.getElementById("data").innerHTML = "";
-  d3.selectAll("circle").attr("fill", color);
+  d3.selectAll("circle").attr("fill", mycolor);
+  const selectEvent = new CustomEvent("undoSelected", {data: null});
+  document.dispatchEvent(selectEvent);
 }
-let json = async () => {
-  const response = await fetch("football.json");
-  const json = await response.json();
-  return json;
-};
-fetch("football.json")
+
+fetch("data/football.json")
   .then((response) => response.json())
   .then((json) => {
+    const color = "#00755E";
     var processed_data = {
       nodes: json.nodes.map((d) => ({
         id: d.id,
@@ -38,6 +42,7 @@ fetch("football.json")
         }
       },
       width: 600,
+      colors: "#00755E",
       height: 600,
       invalidation: null, // a promise to stop the simulation when the cell is re-run
     });
@@ -64,7 +69,7 @@ fetch("football.json")
         linkStrokeWidth = 1.5, // given d in links, returns a stroke width in pixels
         linkStrokeLinecap = "round", // link stroke linecap
         linkStrength,
-        colors = d3.schemeTableau10, // an array of color strings, for the node groups
+        colors, // an array of color strings, for the node groups
         width = 640, // outer width, in pixels
         height = 400, // outer height, in pixels
         invalidation, // when this promise resolves, stop the simulation
@@ -131,7 +136,7 @@ fetch("football.json")
 
       const node = svg
         .append("g")
-        .attr("fill", nodeFill)
+        .attr("fill", mycolor)
         .attr("stroke", nodeStroke)
         .attr("stroke-opacity", nodeStrokeOpacity)
         .attr("stroke-width", nodeStrokeWidth)
@@ -155,6 +160,7 @@ fetch("football.json")
         if (isSelected) {
           // Deselect the node if it's already selected
           selectedNodes = selectedNodes.filter((node) => node !== d);
+          d3.select(this).attr("fill", mycolor);
         } else {
           // Select the clicked node
           selectedNodes.push(d);
@@ -170,11 +176,6 @@ fetch("football.json")
           items.push(data);
         });
         tableCreate(items);
-      }
-      function unselectNodes() {
-        selectedNodes = [];
-        document.getElementById("data").innerHTML = "";
-        d3.selectAll("circle").attr("fill", color);
       }
       function intern(value) {
         return value !== null && typeof value === "object"

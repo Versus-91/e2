@@ -1,264 +1,509 @@
-// set the dimensions and margins of the graph
-const margin = { top: 30, right: 50, bottom: 10, left: 50 },
-  width = 1900 
-  height = 800
+var d3; // Minor workaround to avoid error messages in editors
 
-// append the svg object to the body of the page
-const svg = d3
-  .select("#frame")
-  .append("svg")
-  .attr("width", width )
-  .attr("height", height)
-  .append("g")
-  .attr("transform", `translate(${margin.left},${margin.top})`);
-fetch("football.json").then((data) => {
-  data.json().then((json_data) => {
-    data = [];
-    json_data.nodes.forEach((element) => {
-      if (element.appearance) {
-        data.push(element);
+// Waiting until document has loaded
+window.onload = () => {
+  // Loading the dataset
+  fetch("data/football.json")
+    .then((response) => response.json())
+    .then((json) => console.log(json));
+
+  // YOUR CODE GOES HERE
+  console.log("YOUR CODE GOES HERE");
+  fetch("data/football.json")
+    .then((response) => response.json())
+    .then(function (data) {
+      const defaultAttr = "mins_played";
+      let attributes = [
+        "appearance",
+        "mins_played",
+        "ball_recovery",
+        "challenge_lost",
+        "touches",
+        "clearance_total",
+        "pass_accurate",
+        "pass_inaccurate",
+        "yellow_card",
+        "keeper_save_total",
+      ];
+      let allAttributes = getAttributes();
+      let margin = { top: 30, right: 30, bottom: 30, left: 30 };
+      let width = 1900;
+      let height = 700;
+      let brushWidth = 20;
+      let keyz = defaultAttr;
+
+      let selections = new Map();
+      let dragging = {};
+
+      const tickDistMap = returnAttributeTickDistance();
+      normalizeData();
+      setupColorEncodingDropdown();
+      setupAttributeSelectionDropdowns();
+      let x_axis = build_x_axis();
+
+      let y_axis = build_y_axis();
+
+      let colors = d3.interpolateRdYlGn;
+      let deselectedColor = "#b1b1b1";
+      let highlight = d3.scaleSequential(y_axis.get(keyz).domain(), colors);
+
+      let polyline = drawLine(x_axis, y_axis);
+      let label = lineLabel();
+
+      const brush = d3
+        .brushY()
+        .extent([
+          [-(brushWidth / 2), margin.top],
+          [brushWidth / 2, height - margin.bottom],
+        ])
+        .on("start brush end", function (event, attr) {
+          brushed(event.selection, attr, event);
+        });
+      var svgRef = ParallelCoordinatesPlot(
+        attributes,
+        width,
+        height,
+        margin,
+        highlight,
+        polyline,
+        keyz,
+        label,
+        x_axis,
+        y_axis,
+        brush
+      );
+      var pathRef = svgRef.selectAll("path").filter((d) => d != null);
+      function colorEncodingChangeEventHandler() {
+        const colorEncodingDropdown = d3.select("#color-encoding");
+        colorEncodingDropdown.on("change-attribute", () => {
+          keyz = colorEncodingDropdown.property("attribute-changed-to");
+          selections = new Map();
+          let updatedHighlight = d3.scaleSequential(
+            y_axis.get(keyz).domain(),
+            colors
+          );
+
+          d3.select("svg").remove();
+          let apolyline = drawLine(x_axis, y_axis);
+          svgRef = ParallelCoordinatesPlot(
+            attributes,
+            width,
+            height,
+            margin,
+            updatedHighlight,
+            apolyline,
+            keyz,
+            label,
+            x_axis,
+            y_axis,
+            brush
+          );
+          pathRef = svgRef.selectAll("path").filter((d) => d != null);
+        });
       }
-    });
-    const defaultValues = {
-      appearance: 0,
-      mins_played: 0,
-      ball_recovery: 0,
-      clearance_total: 0,
-      duel_aerial_lost: 0,
-      duel_aerial_won: 0,
-      final_third: 0,
-      pass_inaccurate: 0,
-      pass_accurate: 0,
-      possession: 0,
-      punches: 0,
-      touches: 0,
-      keeper_missed: 0,
-      keeper_save_total: 0,
-      big_chance_scored: 0,
-      challenge_lost: 0,
-      dispossessed: 0,
-      dribble_lost: 0,
-      foul_committed: 0,
-      foul_given: 0,
-      red_card: 0,
-      interception_all: 0,
-      pass_key: 0,
-      second_yellow: 0,
-      yellow_card: 0,
-      tackle_lost: 0,
-      tackle_won: 0,
-      shot_on_target: 0,
-      shot_off_target: 0,
-      shots_total: 0,
-      sub_off: 0,
-      goal_normal: 0,
-      goals: 0,
-      dribble_won: 0,
-      sub_on: 0,
-      assist: 0,
-      man_of_the_match: 0,
-      goal_head: 0,
-      penalty_scored: 0,
-    };
 
-    const processedData = data.map((d) => {
-      const processedObj = {
-        id: d.id,
-        label: d.label,
-        ...defaultValues, // Assign default values for missing keys
-        ...d, // Override default values with actual values from the data
-      };
-      return processedObj;
-    });
-    processedData.forEach((element) => {});
-    data = processedData;
-    var keys = [];
-    let color_scales = new Map();
-    attributeTypes = new Map(
-      Object.entries({
-        mpg: "quantitative",
-        cylinders: "ordinal",
-        displacement: "quantitative",
-        appearance: "quantitative",
-        mins_played: "quantitative",
-        ball_recovery: "quantitative",
-        clearance_total: "quantitative",
-        duel_aerial_lost: "quantitative",
-        duel_aerial_won: "quantitative",
-        final_third: "quantitative",
-        pass_inaccurate: "quantitative",
-        pass_accurate: "quantitative",
-        possession: "quantitative",
-        punches: "quantitative",
-        touches: "quantitative",
-        keeper_missed: "quantitative",
-        keeper_save_total: "quantitative",
-        big_chance_scored: "quantitative",
-        challenge_lost: "quantitative",
-        dispossessed: "quantitative",
-        dribble_lost: "quantitative",
-        foul_committed: "quantitative",
-        foul_given: "quantitative",
-        red_card: "quantitative",
-        interception_all: "quantitative",
-        pass_key: "quantitative",
-        second_yellow: "quantitative",
-        yellow_card: "quantitative",
-        tackle_lost: "quantitative",
-        tackle_won: "quantitative",
-        shot_on_target: "quantitative",
-        shot_off_target: "quantitative",
-        shots_total: "quantitative",
-        sub_off: "quantitative",
-        goal_normal: "quantitative",
-        goals: "quantitative",
-        dribble_won: "quantitative",
-        sub_on: "quantitative",
-        assist: "quantitative",
-        man_of_the_match: "quantitative",
-        goal_head: "quantitative",
-        penalty_scored: "quantitative",
-      })
-    );
+      function attributeChangeEventHandler() {
+        attributes.forEach((attr) => {
+          const axisAttributeDropdown = d3.select(`#axis-attribute-${attr}`);
+          axisAttributeDropdown.on("change-axis-attribute", () => {
+            let selectedAttribute = axisAttributeDropdown.property(
+              "axis-attribute-changed-to"
+            );
+            attributes = attributes.map((el) =>
+              el === attr ? selectedAttribute : el
+            );
+            keyz = selectedAttribute;
+            console.log(`invoking ${attr} -> ${selectedAttribute}`);
+            x_axis = build_x_axis();
+            y_axis = build_y_axis();
 
-    // console.table(data);
-    for (var i = 0; i < data.length; i++) {
-      Object.keys(data[i]).forEach(function (key) {
-        if (keys.indexOf(key) == -1) {
-          if (key !== "id" && key !== "label") {
-            keys.push(key);
+            selections = new Map(); //reset the selections manually since its not a part of brush's internal reset
+            let updatedHighlight = d3.scaleSequential(
+              y_axis.get(selectedAttribute).domain(),
+              colors
+            );
+
+            d3.select("svg").remove();
+            let apolyline = drawLine(x_axis, y_axis);
+            let label = lineLabel();
+            svgRef = ParallelCoordinatesPlot(
+              attributes,
+              width,
+              height,
+              margin,
+              updatedHighlight,
+              apolyline,
+              selectedAttribute,
+              label,
+              x_axis,
+              y_axis,
+              brush
+            );
+            pathRef = svgRef.selectAll("path").filter((d) => d != null);
+            d3.select("#attribute-selection-root").remove();
+            setupAttributeSelectionDropdowns();
+            d3.select("#color-encoding").remove();
+            setupColorEncodingDropdown();
+          });
+        });
+      }
+
+      function brushed(selection, key, event) {
+        event.sourceEvent.stopPropagation();
+        if (selection === null) selections.delete(key);
+        else selections.set(key, selection.map(y_axis.get(key).invert));
+        const selected = [];
+        pathRef.each(function (d) {
+          const active = Array.from(selections).every(
+            ([key, [min, max]]) => d[key] >= min && d[key] <= max
+          );
+          const brushHighlight = d3.scaleSequential(
+            y_axis.get(keyz).domain(),
+            colors
+          );
+          d3.select(this).attr(
+            "stroke",
+            active ? brushHighlight(d[keyz]) : deselectedColor
+          );
+          if (active) {
+            d3.select(this).raise();
+            selected.push(d);
           }
-        }
-      });
-    }
-    dimensions = keys;
-    x = d3.scalePoint(dimensions, [margin.left, width - margin.right - 80]);
-    let scales = new Map();
+        });
+        svgRef.property("value", selected).dispatch("input");
+      }
 
-    // TODO: create a suitable scale for each attribute and add it to the map
-    dimensions.forEach(function (attribute) {
-      scales.set(
-        attribute,
-        d3
-          .scaleLinear()
-          .range([height - margin.bottom, margin.top])
-          //define domain depending on the range of the attribute in the dataset
-          .domain(d3.extent(data, (item) => item[attribute]))
-        //d3.extent(iterable[, accessor]) acessor function is optional
-      );
-    });
-    y = scales;
-    dimensions.forEach(function (attribute) {
-      //depending on the type of the attribute, set appropriate scale with domain of the attribute in y
-      if (attributeTypes.get(attribute) == "quantitative") {
-        color_scales.set(
-          attribute,
-          d3.scaleSequential(y.get(attribute).domain(), d3.interpolateWarm)
-        );
-      }
-      if (attributeTypes.get(attribute) == "ordinal") {
-        color_scales.set(
-          attribute,
-          d3.scaleSequential(y.get(attribute).domain(), d3.interpolateWarm)
-        );
-      }
-      if (attributeTypes.get(attribute) == "categorical") {
-        color_scales.set(
-          attribute,
-          d3.scaleOrdinal(y.get(attribute).domain(), d3.schemeCategory10)
-        );
-      }
-    });
-    for (i in dimensions) {
-      name = dimensions[i];
-      y[name] = d3
-        .scaleLinear()
-        .domain(
-          d3.extent(data, function (d) {
-            return +d[name];
+      function ParallelCoordinatesPlot(
+        attributes,
+        width,
+        height,
+        margin,
+        highlight,
+        polyline,
+        keyz,
+        label,
+        x_axis,
+        y_axis,
+        brush
+      ) {
+        const svg = d3
+          .select("#container")
+          .append("svg")
+          .attr("width", width)
+          .attr("height", height);
+
+        const path = svg
+          .append("g")
+          .attr("fill", "none")
+          .attr("stroke-width", 2.0)
+          .attr("stroke-opacity", 0.8)
+          .selectAll("path")
+          .data(data["nodes"])
+          .attr("id", function (d) {
+            return "path-" + d.id;
           })
-        )
-        .range([height, 0]);
-    }
-    const selections = new Map();
-    function brushed({ selection }, key) {
-      if (selection === null) selections.delete(key);
-      else selections.set(key, selection.map(x.get(key).invert));
-      const selected = [];
-      path.each(function (d) {
-        const active = Array.from(selections).every(
-          ([key, [min, max]]) => d[key] >= min && d[key] <= max
+          .join("path")
+          .attr("stroke", (d) => highlight(d[keyz]))
+          .attr("d", (d) => {
+            return polyline(
+              d3.cross(attributes, [d], (key, d) => {
+                return [key, d[key]];
+              })
+            );
+          });
+        document.addEventListener("nodeSelected", function (event) {
+          const selectedNodes = event.detail;
+
+          // Get the paths in the parallel coordinates plot
+          const paths = svg.selectAll("path");
+          const SelectedPaths = [];
+          // Iterate over the selected nodes and retrieve the corresponding paths
+          for (let i = 0; i < selectedNodes.length; i++) {
+            const nodeId = selectedNodes[i].id;
+
+            // Find the path with the matching data-id attribute
+            SelectedPaths.push(
+              paths.filter(function (d) {
+                if (!!d && !!d.id) {
+                  return d.id === nodeId;
+                }
+              })
+            );
+          }
+          if (SelectedPaths.length > 0) {
+            paths.attr("stroke-opacity", 0.1);
+            SelectedPaths.forEach((path) => {
+              path.attr("stroke-width", 4);
+              path.attr("stroke-opacity", 2);
+              path.attr("stroke", "#fc9403");
+            });
+          }
+        });
+        document.addEventListener("undoSelected", function (event) {
+          d3.select("svg").remove();
+          var svgRef = ParallelCoordinatesPlot(
+            attributes,
+            width,
+            height,
+            margin,
+            highlight,
+            polyline,
+            keyz,
+            label,
+            x_axis,
+            y_axis,
+            brush
+          );
+          pathRef = svgRef.selectAll("path").filter((d) => d != null);
+        });
+        path.append("title").text(label);
+
+        const g = svg
+          .append("g")
+          .selectAll("g")
+          .data(attributes)
+          .join("g")
+          .attr("transform", (d) => `translate(${x_axis(d)},0)`)
+          .each(function (d) {
+            d3.select(this).call(
+              d3.axisLeft(y_axis.get(d)).tickFormat(function (d) {
+                return d < 0 ? "NA" : d;
+              })
+            );
+          })
+          .call(
+            d3
+              .drag()
+              .subject(function (event, d) {
+                return { x: x_axis(d) };
+              })
+              .on("start", function (d) {
+                dragging[d] = x_axis(d);
+              })
+              .on("drag", function (event, d) {
+                dragging[d] = Math.min(
+                  width - margin.right,
+                  Math.max(margin.left, event.x)
+                );
+                attributes.sort(function (a, b) {
+                  return position(a) - position(b);
+                });
+                x_axis.domain(attributes);
+                g.attr("transform", function (d) {
+                  return "translate(" + position(d) + ")";
+                });
+                path.each(function (d) {
+                  d3.select(this).select("title").remove();
+                  d3.select(this).append("title").text(label);
+                });
+              })
+              .on("end", function (event, d) {
+                delete dragging[d];
+                d3.select(this)
+                  .transition()
+                  .duration(500)
+                  .attr("transform", "translate(" + x_axis(d) + ")");
+                path
+                  .transition()
+                  .duration(300)
+                  .attr("d", (d) =>
+                    polyline(
+                      d3.cross(attributes, [d], (key, d) => [key, d[key]])
+                    )
+                  );
+
+                d3.select("#attribute-selection-root").remove();
+                setupAttributeSelectionDropdowns();
+              })
+          )
+          .call((g) =>
+            g
+              .append("text")
+              .attr("x", margin.left - 35)
+              .attr("y", 20)
+              .attr("text-anchor", "middle")
+              .attr("fill", "currentColor")
+              .text((d) => d)
+          )
+          .call((g) =>
+            g
+              .selectAll("text")
+              .clone(true)
+              .lower()
+              .attr("fill", "none")
+              .attr("stroke-width", 5)
+              .attr("stroke-linejoin", "round")
+              .attr("stroke", "white")
+          );
+
+        g.append("g").each(function (d) {
+          d3.select(this).call(brush);
+        });
+
+        return svg;
+      }
+
+      function setupAttributeSelectionDropdowns() {
+        const div_attr_drpdwn = d3.select(document.createElement("div"));
+        div_attr_drpdwn.attr("id", "attribute-selection-root");
+        attributes.forEach((axis_attr) => {
+          const form = d3.select(document.createElement("form"));
+          form.attr("id", `axis-attribute-${axis_attr}`);
+          form.attr("class", "attribute-selection-dropdown ");
+          let selectElement = document.createElement("select");
+          selectElement.className = "form-select form-select-sm";
+          const select = d3.select(selectElement);
+          allAttributes.forEach((attr) => {
+            if (
+              !attributes.filter((el) => el != axis_attr).includes(attr) &&
+              attr !== "label"
+            ) {
+              select.append("option").attr("value", attr).text(attr);
+            }
+          });
+
+          select.property("value", axis_attr);
+          select.on("change", () => {
+            console.log("change...");
+            attributeChangeEventHandler();
+            form.property(
+              "axis-attribute-changed-to",
+              select.property("value")
+            );
+            form.node().dispatchEvent(new Event("change-axis-attribute"));
+          });
+
+          form.append(() => select.node());
+          div_attr_drpdwn.append(() => form.node());
+        });
+        d3.select("#attr-selection").append(() => div_attr_drpdwn.node());
+      }
+
+      function position(d) {
+        let pos = dragging[d];
+        return pos == null ? x_axis(d) : pos;
+      }
+
+      function build_x_axis() {
+        let x_axis = d3.scalePoint(attributes, [
+          margin.left,
+          width - margin.right,
+        ]);
+        return x_axis;
+      }
+
+      function build_y_axis() {
+        let y_axis = new Map(
+          Array.from(attributes, (attr) => {
+            const scale = d3.scaleLinear(
+              d3.extent(data["nodes"], (d) => d[attr]),
+              [margin.top, height - margin.bottom]
+            );
+            return [attr, scale];
+          })
         );
-        d3.select(this).style("stroke", active ? z(d[keyz]) : deselectedColor);
-        if (active) {
-          d3.select(this).raise();
-          selected.push(d);
-        }
-      });
-      svg.property("value", selected).dispatch("input");
-    }
-    const brush = d3
-      .brushY()
-      .extent([
-        [-10, margin.top],
-        [10, height - margin.bottom],
-      ])
-      .on("start brush end", brushed);
-    // Build the X scale -> it find the best position for each Y axis
-    x = d3.scalePoint().range([0, width]).padding(1).domain(dimensions);
+        return y_axis;
+      }
 
-    // The path function take a row of the csv as input, and return x and y coordinates of the line to draw for this raw.
-    function path(d) {
-      return d3.line()(
-        dimensions.map(function (p) {
-          return [x(p), y[p](d[p])];
-        })
-      );
-    }
-
-    // Draw the lines
-    svg
-      .selectAll("myPath")
-      .data(data.slice().sort((a, b) => d3.ascending(a[keys], b[keys])))
-      .join("path")
-      .attr("stroke", (d) => d3.scaleSequential([0, 10], d3.interpolateWarm))
-      .attr("d", (d) =>
-        d3
+      function drawLine(x_axis, y_axis) {
+        let polyline = d3
           .line()
-          .defined(([, value]) => value != null)
-          .x(([key, value]) => x(key))
-          .y(([key, value]) => y.get(key)(value))(
-          d3.cross(dimensions, [d], (key, d) => [key, d[key]])
-        )
-      )
-      .attr("d", path)
-      .style("fill", "none")
-      .style("stroke", "#69b3a2")
-      .style("opacity", 0.5);
+          //.defined(([,value]) => value != undefined)
+          .x(([key]) => x_axis(key))
+          .y(([key, value]) => y_axis.get(key)(value));
+        return polyline;
+      }
 
-    // Draw the axis:
-    svg
-      .selectAll("myAxis")
-      // For each dimension of the dataset I add a 'g' element:
-      .data(dimensions)
-      .enter()
-      .append("g")
-      .call(brush)
-      // I translate this element to its right position on the x axis
-      .attr("transform", function (d) {
-        return "translate(" + x(d) + ")";
-      })
-      // And I build the axis with the call function
-      .each(function (d) {
-        d3.select(this).call(d3.axisLeft().scale(y[d]));
-      })
-      // Add axis title
-      .append("text")
-      .style("text-anchor", "middle")
-      .attr("y", -9)
-      .text(function (d) {
-        return d;
-      })
-      .style("fill", "black");
-  });
-});
+      function lineLabel() {
+        let alabel = function (d) {
+          let str = d["label"] + " : ";
+          let playerValues = [];
+          attributes.forEach((attr) => {
+            if (d[attr] >= 0) playerValues.push(d[attr]);
+            else playerValues.push("NA");
+          });
+          str += playerValues.join(", ");
+          return str;
+        };
+        return alabel;
+      }
+
+      function getAttributes() {
+        let attributes = [];
+        data["nodes"].forEach((playerData) => {
+          let ignoredDataAttributes = ["id"];
+          for (let dataAttribute in playerData) {
+            //check if the data attr being looked at isnt "id"
+            //and hasnt already been added to our attributes list
+            if (
+              !ignoredDataAttributes.includes(dataAttribute) &&
+              !attributes.includes(dataAttribute)
+            ) {
+              attributes.push(dataAttribute);
+            }
+          }
+        });
+
+        //comment this - mocking attributes list
+        /*attributes = ['appearance', 'mins_played', 'ball_recovery', 'challenge_lost', 'touches',
+                      'clearance_total', 'dispossessed', 'dribble_lost', 'duel_aerial_lost', 'duel_aerial_won']; */
+        return attributes;
+      }
+
+      function getAttributesOfPlayer(playerData) {
+        return Object.keys(playerData);
+      }
+
+      function normalizeData() {
+        const allAttributes = getAttributes(); //get a list of all the attributes
+        data["nodes"].forEach((playerData) => {
+          const playerAttributes = getAttributesOfPlayer(playerData);
+          allAttributes.forEach((dataAttribute) => {
+            if (!playerAttributes.includes(dataAttribute)) {
+              playerData[dataAttribute] = tickDistMap.get(dataAttribute); // app. negative value represents NA value, workaround suitable for our dataset
+            }
+          });
+        });
+      }
+
+      function returnAttributeTickDistance() {
+        let tickDistMap = new Map(
+          Array.from(allAttributes, (attr) => {
+            const scale = d3.scaleLinear(
+              d3.extent(data["nodes"], (d) => d[attr]),
+              [margin.top, height - margin.bottom]
+            );
+            const ticks = scale.ticks();
+            const tickDistance = Number((ticks[1] - ticks[2]).toFixed(1));
+            return [attr, tickDistance];
+          })
+        );
+        return tickDistMap;
+      }
+
+      function setupColorEncodingDropdown() {
+        const form = d3.select(document.createElement("form"));
+        form.attr("id", "color-encoding");
+        form.attr("class", "color-encoding-dropdown");
+        const select = d3.select(document.createElement("select"));
+        attributes.forEach((attr) => {
+          select.append("option").attr("value", attr).text(attr);
+        });
+
+        select.property("value", keyz);
+        select.on("change", () => {
+          colorEncodingChangeEventHandler();
+          form.property("attribute-changed-to", select.property("value"));
+          form.node().dispatchEvent(new Event("change-attribute"));
+        });
+
+        form.append(() => select.node());
+        form
+          .append("i")
+          .style("font-size", "smaller")
+          .style("margin-left", "15px")
+          .text("color encoding");
+        d3.select("#encoding-container").append(() => form.node());
+      }
+    });
+};
